@@ -5,6 +5,7 @@ from typing import Dict
 from dijkstar import Graph
 import copy
 import os
+import threading
       
 
 class RouteState(object):
@@ -132,10 +133,10 @@ class Routing(object):
 
     def generateNextStage(self, parentStage: RouteState, requestOrder: int, stageStore: list):
       if requestOrder >= len(self.requests):
-        indexNumber = self.insertState(stageStore, self.calHeuCost(parentStage), 0, len(stageStore)-1)
-        stageStore.insert(indexNumber, parentStage)
+        # indexNumber = self.insertState(stageStore, self.calHeuCost(parentStage), 0, len(stageStore)-1)
+        # stageStore.insert(indexNumber, parentStage)
+        stageStore.append(parentStage)
         return
-
       if self.isCompleteRequest(parentStage.path[requestOrder], parentStage.requiredVnfs[requestOrder], self.requests[requestOrder]):
         self.generateNextStage(parentStage, requestOrder+1, stageStore)
         return
@@ -144,6 +145,8 @@ class Routing(object):
       currentGraph: Graph = copy.deepcopy(parentStage.graph)
       edges = copy.deepcopy(self.input.input.getNodeDijit(currentGraph, currentNodeId)).items()
       if not edges: return
+      arrThread = []
+
       for target, cost in edges:
         currentStage: RouteState = copy.deepcopy(parentStage)
         currentStage.graph = currentGraph
@@ -211,7 +214,16 @@ class Routing(object):
         if estimateCost == -1:
           continue
         currentStage.h += estimateCost
-        self.generateNextStage(currentStage, requestOrder+1, stageStore)   
+        try:
+          t = threading.Thread(target=self.generateNextStage, args=(currentStage, requestOrder+1, stageStore))
+          t.start()
+          arrThread.append(t)
+        except:
+          self.generateNextStage(currentStage, requestOrder+1, stageStore)
+
+      for thread in arrThread:
+        thread.join()
+
 
     def insertState(self, arr: list=[], heuCost =0, start=0, end=-1):
       if len(arr) == 0:
@@ -234,12 +246,16 @@ class Routing(object):
         return
       stateStore = [self.initState]
       while (len(stateStore)):
+        queue = []
         state = stateStore.pop(0)
         if self.isEndState(state):
           return state
         print('space state ',len(stateStore), ' leftVnfs ',len(state.requiredVnfs))
         state.h = 0
-        self.generateNextStage(state, 0, stateStore)
+        self.generateNextStage(state, 0, queue)
+        for state in queue:
+          indexNumber = self.insertState(stateStore, self.calHeuCost(state), 0, len(stateStore)-1)
+          stateStore.insert(indexNumber, state)
         
         
         
