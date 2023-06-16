@@ -2,6 +2,7 @@ from constant import constant
 from processData.getResource import PreProcessInput
 from collections import Counter
 from typing import Dict
+import numpy as np
 from dijkstar import Graph
 import copy
 import os
@@ -251,12 +252,29 @@ class Routing(object):
         state = stateStore.pop(0)
         if self.isEndState(state):
           return state
-        print('space state ',len(stateStore), ' leftVnfs ',len(state.requiredVnfs))
+        # print('space state ',len(stateStore), ' leftVnfs ',len(state.requiredVnfs))
         state.h = 0
         self.generateNextStage(state, 0, queue)
         for state in queue:
           indexNumber = self.insertState(stateStore, self.calHeuCost(state), 0, len(stateStore)-1)
           stateStore.insert(indexNumber, state)
+
+    def resetInds(self):
+      print('old ', self.input.individuals)
+      for indexSolution, ind in enumerate(self.input.individuals):
+        self.individual = ind
+        self.indexSolution =indexSolution
+        rsAstart = None
+        while rsAstart == None:
+          rsAstart = self.aStart()
+          self.input.individuals[indexSolution] = np.random.randint(-1, self.input.input.numberVnfs, (1, self.input.numberServerNode*self.input.offsetServerNode))
+          self.individual = self.input.individuals[indexSolution]
+          print('reset ', self.individual)
+        print('success ', indexSolution)
+      f = open("demofile2.txt", "w")
+      f.write(str(self.input.individuals))
+      f.close()
+      print(self.input.individuals)
         
         
         

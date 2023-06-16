@@ -14,11 +14,12 @@ inputData.initIndividuals()
 # print(inputData.matrixNeighbor)
 
 routing = Routing(constant.REQUEST_10, inputData, 0)
-a = routing.aStart()
+# a = routing.aStart()
+routing.resetInds()
 print('----------------------------')
-if not a:
-    print(routing.individual)
-else: print(a.__dict__)
+# if not a:
+#     print(routing.individual)
+# else: print(a.__dict__)
 
 # from dijkstar import Graph, find_path
 
