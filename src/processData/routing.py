@@ -215,6 +215,7 @@ class Routing(object):
           continue
         currentStage.h += estimateCost
         try:
+          assert(len(arrThread) >5)
           t = threading.Thread(target=self.generateNextStage, args=(currentStage, requestOrder+1, stageStore))
           t.start()
           arrThread.append(t)
