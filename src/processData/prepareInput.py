@@ -6,7 +6,7 @@ import os
 
 class PrepareInput(object):
    def __init__(self):
-      inputFile = open(os.getcwd() + '/../dataset/'+ constant.NAME_DATA_SET +'/' + constant.INPUT, 'r')
+      inputFile = open(os.getcwd() + '/dataset/'+ constant.NAME_DATA_SET +'/' + constant.INPUT, 'r')
       lines =inputFile.readlines()
 
       vnfInfo = lines[constant.LINE_VNF].split(' ')
@@ -25,7 +25,7 @@ class PrepareInput(object):
             costServer = int(nodeConfig[constant.INDEX_COST_SERVER])
             costVnfs = []
             if costServer >0:
-               costVnfs = [int(i) for i in nodeConfig[-self.numberVnfs]]
+               costVnfs = [int(i) for i in nodeConfig[-self.numberVnfs:]]
             self.nodes[nodeId] = Node(nodeDelay, costServer, costVnfs)
       initNode()
          

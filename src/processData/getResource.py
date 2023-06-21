@@ -20,6 +20,7 @@ class PreProcessInput(object):
             continue
          self.serverNodeIds.append(id)
          self.numberServerNode+=1
+      # np.random.seed(100)
       self.individuals = np.random.randint(-1, self.input.numberVnfs, (self.numberSolutions, self.numberServerNode*self.offsetServerNode))
       print('initNeighborhoods done')
 
@@ -35,7 +36,7 @@ class PreProcessInput(object):
          'isActive': isActive,
          'status': status,
          'orderServerNode': orderServerNode,
-         'vnfs': individual[startConfig+1: startConfig+self.input.maxVnfOnServer+1]
+         'vnfs': [i for i in individual[startConfig+1: startConfig+self.input.maxVnfOnServer+1] if i>-1]
       }
       return rs
       
@@ -43,7 +44,7 @@ class PreProcessInput(object):
       orderServerNodes = []
       for serverid in self.serverNodeIds:
          serverStatus = self.getStatusServerNode(individual, serverid)
-         if serverStatus and serverStatus.get('status') and typeVnf in serverStatus.get('vnfs'):
+         if serverStatus and serverStatus.get('isActive') and typeVnf in serverStatus.get('vnfs'):
             orderServerNodes.append(serverid)
       return orderServerNodes
    

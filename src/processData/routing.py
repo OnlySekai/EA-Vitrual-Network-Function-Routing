@@ -4,6 +4,7 @@ from collections import Counter
 from typing import Dict
 import numpy as np
 from dijkstar import Graph
+from processData.dfs import DFS
 import copy
 import os
 import threading
@@ -22,7 +23,7 @@ class RouteState(object):
 
 class Routing(object):
     def __init__(self, fileName, input: PreProcessInput, indexSolution):
-      inputFile = open(os.getcwd() + '/../dataset/' + constant.NAME_DATA_SET + '/' + fileName, 'r')
+      inputFile = open(os.getcwd() + '/dataset/' + constant.NAME_DATA_SET + '/' + fileName, 'r')
       lines =inputFile.readlines()
       self.numberRequest = int(lines[0].split(' ')[0])
       self.input = input
@@ -30,13 +31,15 @@ class Routing(object):
       self.individual = input.individuals[indexSolution]
       self.requests = []
       self.minEdge = input.input.minEdgeCost
-      garph = copy.deepcopy(self.input.input.graph)
-      self.initState = RouteState([], [], garph)
+      graph = copy.deepcopy(self.input.input.graph)
+      self.initState = RouteState([], [], graph)
       self.CAP_MAX = 0
       self.MEM_MAX = 0
       self.CPU_MAX = 0
       self.minCpu = constant.INFINITY
       self.minMem = constant.INFINITY
+      self.dfs = DFS(input, indexSolution)
+
 
       limitMem: Dict(int, int) = self.initState.limitMem
       limitCpu: Dict(int, int) = self.initState.limitCpu
@@ -62,6 +65,7 @@ class Routing(object):
         limitMem[request.get('startRequest')] = 0
         startNode = self.input.getStatusServerNode(self.individual, request.get('startRequest'))
         if startNode:
+          assert startNode.get('isActive'), 'node start {} must active'.format(request.get('startRequest'))
           limitCpu[request.get('startRequest')] = 0
           while len(requiredVnfs):
             nextVnf = requiredVnfs[0]
@@ -73,9 +77,7 @@ class Routing(object):
         else:
           limitMem[request.get('startRequest')]+=request.get('memory')
         h = self.calEstimate(self.initState.graph, request['startRequest'], request['endRequest'], requiredVnfs, {}, request['cpu'])
-        if h==-1:
-          self.initState.h = -1
-          break
+        assert h==-1, 'not have route {}'.format(request.get('startRequest'))
         self.initState.h+= h
         self.initState.requiredVnfs.append(requiredVnfs)
         self.initState.path.append([request.get('startRequest')])
@@ -91,10 +93,11 @@ class Routing(object):
       for index, request in enumerate(self.requests):
           if not status:
              break
-          status = status and self.isCompleteRequest(state.path[index], state.requiredVnfs[index], request)
+          isCompleteRequest = self.isCompleteRequest(state.path[index], state.requiredVnfs[index], request)
+          status = status and isCompleteRequest
       return status
     
-    def calEstimate(self, garph: Graph, startNode, endNode, requiredVnfs, limitCpu, cpu):
+    def calEstimate(self, garph: Graph, startNode, endNode, requiredVnfs, limitCpu, cpu, usageIn = ''):
       if not len(requiredVnfs):
         pathToEnd = self.input.input.shortestPath(garph, startNode, endNode)
         if pathToEnd == None:
@@ -106,6 +109,8 @@ class Routing(object):
       typeVnf = cloneRequiredVnfs.pop(0)
       nodesHaveVnf = self.input.getNodeHaveVnf(self.individual, typeVnf)
       minPath = constant.INFINITY
+      if usageIn == 'genState' and len(nodesHaveVnf):
+        print(nodesHaveVnf)
       for node in nodesHaveVnf:
         usageCpu = 0
         if limitCpu.get(node):
@@ -143,89 +148,80 @@ class Routing(object):
         return
       
       currentNodeId = parentStage.path[requestOrder][-1]
-      currentGraph: Graph = copy.deepcopy(parentStage.graph)
-      edges = copy.deepcopy(self.input.input.getNodeDijit(currentGraph, currentNodeId)).items()
-      if not edges: return
+      request = self.requests[requestOrder]
+      nextNodes = [request.get('endRequest')]
+      requiredVnfs = parentStage.requiredVnfs[requestOrder]
+      if len(requiredVnfs):
+        nextVnf = requiredVnfs.pop(0)
+        nextNodes = self.input.getNodeHaveVnf(self.individual, nextVnf)
+      if not len(nextNodes):
+        return
+      
+      # currentGraph: Graph = copy.deepcopy(parentStage.graph)
       arrThread = []
 
-      for target, cost in edges:
-        currentStage: RouteState = copy.deepcopy(parentStage)
-        currentStage.graph = currentGraph
-
-        path = currentStage.path[requestOrder]
-        if len(path) > 2 and path[-2] == target:
+      for target in nextNodes:
+        # currentStage: RouteState = copy.deepcopy(parentStage)
+        # currentStage.graph = currentGraph
+        pathsByDfs =[]
+        self.dfs.dfs(self.initState.graph, currentNodeId, target,request.get('memory'), request.get('bandwidth'), parentStage.limitMem, parentStage.limitBandwidth, self.MEM_MAX, self.CAP_MAX, pathsByDfs)
+        if not len(pathsByDfs):
           continue
-        path.append(target)
-        mostCommon = Counter([node for path in currentStage.path for node in path]).most_common(1)[0][1] 
-        if mostCommon> len(self.requests)+1:
-          continue
-        request = self.requests[requestOrder]
-
-        
-        #update bandwidth
-        limitBandwidth= currentStage.limitBandwidth
-        edge = path[-2:]
-        edge.sort()
-        edgeTuple = tuple(edge)
-        if limitBandwidth.get(edgeTuple):
-          limitBandwidth[edgeTuple] += request.get('bandwidth')
-        else:
-          limitBandwidth[edgeTuple] = request.get('bandwidth') 
-        if limitBandwidth[edgeTuple] > self.CAP_MAX:
-          continue
-        if limitBandwidth[edgeTuple] + self.minEdge > self.CAP_MAX:
-          if self.input.input.getEdge(currentStage.graph, edge[0], edge[1]): currentStage.graph.remove_edge(edge[0], edge[1])
-          if self.input.input.getEdge(currentStage.graph, edge[1], edge[0]): currentStage.graph.remove_edge(edge[1], edge[0])
-        
-        serverStatus  = self.input.getStatusServerNode(self.individual, target)
-        requiredVnfs = currentStage.requiredVnfs[requestOrder]
-        limitCpu = currentStage.limitCpu
-        limitMem = currentStage.limitMem
-
-        if serverStatus:
-          if not serverStatus.get('status'):
-            if self.input.input.getNodeDijit(currentStage.graph, target): currentStage.graph.remove_node(target)
+        for pathByDfs in pathsByDfs:
+          cost = 0
+          if not len(pathByDfs):
             continue
-          if len(requiredVnfs):
-            nextVnf = requiredVnfs[0]
-            serverVnf = serverStatus.get('vnfs')
-            while nextVnf in serverVnf:
-              if not limitCpu.get(target):
-                limitCpu[target] = request.get('cpu')
-              else:
-                if limitCpu[target]+request.get('cpu') < self.CPU_MAX:
-                  break
-                limitCpu[target] +=request.get('cpu')
-              requiredVnfs.pop(0)
-              if not len(requiredVnfs):
-                break
-              nextVnf = requiredVnfs[0]
-        else:
-          memory = request.get('memory')
-          if not limitMem.get(target):
-            limitMem[target] =0
-          limitMem[target] += memory
-          if limitMem[target] > self.MEM_MAX:
+          currentStage: RouteState = copy.deepcopy(parentStage)
+          limitCpu = currentStage.limitCpu
+          usageCpu = limitCpu.get(target)
+          if usageCpu:
+            limitCpu[target] += request.get('cpu')
+          else:
+            limitCpu[target] = request.get('cpu')
+          if limitCpu[target] > self.CPU_MAX:
+            limitCpu[target] -= request.get('cpu')
             continue
-          if limitMem[target] +self.minMem > self.MEM_MAX:
-            self.input.input.removeNodeDijit(currentStage.graph, target)
+          isLimit = False
+
+          for index, nextNode in enumerate(pathByDfs):
+            if nextNode == target:
+              continue
+            edge = [nextNode, pathByDfs[index+1]]
+            edge.sort()
+            edgeTuple = tuple(edge)
+            
+            limitBandwidth = currentStage.limitBandwidth
+            if limitBandwidth.get(edgeTuple):
+              limitBandwidth[edgeTuple] += request.get('bandwidth')
+            else:
+              limitBandwidth[edgeTuple] = request.get('bandwidth')
+            if limitBandwidth[edgeTuple] > self.CAP_MAX:
+              isLimit = True
+              limitBandwidth[edgeTuple] -= request.get('bandwidth')
+              break
+            cost += self.initState.graph.get_edge(nextNode, pathByDfs[index+1])
     
-        currentStage.g += cost
-        estimateCost = self.calEstimate(currentStage.graph,target, request.get('endRequest'), requiredVnfs, limitCpu, request.get('cpu'))
-        if estimateCost == -1:
-          continue
-        currentStage.h += estimateCost
-        try:
-          assert(len(arrThread) >5)
-          t = threading.Thread(target=self.generateNextStage, args=(currentStage, requestOrder+1, stageStore))
-          t.start()
-          arrThread.append(t)
-        except:
+            if index ==0:
+              continue
+            serverStatus = self.input.getStatusServerNode(self.individual, nextNode)
+            if not serverStatus:
+              limitMem = currentStage.limitMem
+              if limitMem.get(nextNode):
+                limitMem[nextNode] += request.get('memory')
+              else:
+                limitMem[nextNode] = request.get('memory')
+              if limitMem[nextNode] > self.MEM_MAX:
+                isLimit = True
+                limitMem[nextNode] -=request.get('memory')
+                break
+          if isLimit:
+            continue
+          h = self.calEstimate(self.initState.graph, target, request.get('endRequest'), requiredVnfs, currentStage.limitCpu,request.get('cpu'), usageIn='genState')
+          if h == -1:
+            continue
+          currentStage.g+= cost
+          currentStage.h = h
           self.generateNextStage(currentStage, requestOrder+1, stageStore)
-
-      for thread in arrThread:
-        thread.join()
-
 
     def insertState(self, arr: list=[], heuCost =0, start=0, end=-1):
       if len(arr) == 0:
@@ -244,8 +240,7 @@ class Routing(object):
       return self.insertState(arr, heuCost, mid, end)
 
     def aStart(self):
-      if self.initState.h == -1:
-        return
+      assert self.initState.h == -1, 'init state estimate can\'t be -1'
       stateStore = [self.initState]
       while (len(stateStore)):
         queue = []

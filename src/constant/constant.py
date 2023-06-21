@@ -1,4 +1,4 @@
-NAME_DATA_SET = 'cogent_center_1'
+NAME_DATA_SET = 'cogent_center_0'
 INFINITY = 99999999999999999999
 
 INPUT='input.txt'
