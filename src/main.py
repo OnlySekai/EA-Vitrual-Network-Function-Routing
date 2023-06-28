@@ -2,19 +2,46 @@ from processData.getResource import PreProcessInput
 from processData.routing import Routing
 from constant import constant
 from processData.dfs import DFS
+from moead.MOEAD import MOEAD
+import pandas as pd
 
-done = False
-while (not done):
-    try:
-        inputData = PreProcessInput(1, 4)
-        inputData.initIndividuals()
-        routing = Routing(constant.REQUEST_10, inputData, 0)
-        a = routing.aStart()
-    except Exception as e:
-        print(e)
-    else:
-        if a != None: done = True
-print(a)
+
+def initIndividuals():
+    done = False
+    individuals = []
+    while (not done):
+        try:
+            inputData = PreProcessInput(1, 4)
+            inputData.initIndividuals()
+            routing = Routing(constant.REQUEST_10, inputData, 0)
+            a = routing.aStart()
+            print('routing')
+            if a:
+                a= list(inputData.individuals[0])
+                if not a in individuals:
+                    individuals.append(a)
+        except Exception as e:
+            print(e)
+        else:
+            if len(individuals) == constant.NUMBER_SOLUTION:
+                done =True
+    pd.DataFrame(individuals).to_csv('tuan.csv', index=False)
+def run():
+    inputData = PreProcessInput(constant.NUMBER_SOLUTION, constant.NUMBER_NEIGHBOR)
+    inputData.initIndividuals()
+    inputData.initWeightVectors()
+    inputData.initNeighborhoods()
+    df = pd.read_csv('tuan.csv')
+    lst = df.to_numpy()
+    inputData.individuals = lst
+    # routing = Routing(constant.REQUEST_10, inputData, 5)
+    # a = routing.aStart()
+    # print('CAP: {}, CPU: {}, MEM: {}'.format(routing.CAP_MAX, routing.CPU_MAX, routing.MEM_MAX))
+    # print(a.__dict__)
+    modad = MOEAD(inputData)
+    modad.execute(5000)
+# initIndividuals()
+run()
 # store = []
 # dfs = DFS(inputData.input)
 

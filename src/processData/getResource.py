@@ -21,8 +21,20 @@ class PreProcessInput(object):
          self.serverNodeIds.append(id)
          self.numberServerNode+=1
       # np.random.seed(100)
-      self.individuals = np.random.randint(-1, self.input.numberVnfs, (self.numberSolutions, self.numberServerNode*self.offsetServerNode))
+      self.individuals = np.random.randint(-1, self.input.numberVnfs, (1, self.numberServerNode*self.offsetServerNode))
       print('initNeighborhoods done')
+   
+   def getActiveServerNode(self, individual):
+      activeNode = []
+      for serverNodeId in self.serverNodeIds:
+         statusNode = self.getStatusServerNode(individual, serverNodeId)
+         status = statusNode.get('status')
+         if status:
+            data ={}
+            data['node'] = self.input.nodes[serverNodeId]
+            data['vnfs'] = [vnf for vnf in statusNode.get('vnfs') if vnf>=0]
+            activeNode.append(data)
+      return activeNode
 
    def getStatusServerNode(self, individual, severId):
       try:

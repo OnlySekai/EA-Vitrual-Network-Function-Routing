@@ -7,7 +7,9 @@ class DFS(object):
       self.state = []
       self.visited = {}
       self.invidual = input.individuals[indexInvidual]
-    def dfs(self, graph, start, end, mem, bandwidth, limitMem, limitBandwidth, maxMem, maxBandwidth, store):
+    def dfs(self, graph, start, end, mem, bandwidth, _limitMem, _limitBandwidth, maxMem, maxBandwidth, store):
+      limitMem = copy.deepcopy(_limitMem)
+      limitBandwidth = copy.deepcopy(_limitBandwidth)
       self.state.append(start)
       self.visited[start] = True
       shortestpath = self.input.shortestPath(graph, start, end)

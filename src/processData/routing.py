@@ -77,7 +77,7 @@ class Routing(object):
         else:
           limitMem[request.get('startRequest')]+=request.get('memory')
         h = self.calEstimate(self.initState.graph, request['startRequest'], request['endRequest'], requiredVnfs, {}, request['cpu'])
-        assert h==-1, 'not have route {}'.format(request.get('startRequest'))
+        assert h != -1, 'not have route {}'.format(request.get('startRequest'))
         self.initState.h+= h
         self.initState.requiredVnfs.append(requiredVnfs)
         self.initState.path.append([request.get('startRequest')])
@@ -97,9 +97,9 @@ class Routing(object):
           status = status and isCompleteRequest
       return status
     
-    def calEstimate(self, garph: Graph, startNode, endNode, requiredVnfs, limitCpu, cpu, usageIn = ''):
+    def calEstimate(self, graph: Graph, startNode, endNode, requiredVnfs, limitCpu, cpu, usageIn = ''):
       if not len(requiredVnfs):
-        pathToEnd = self.input.input.shortestPath(garph, startNode, endNode)
+        pathToEnd = self.input.input.shortestPath(graph, startNode, endNode)
         if pathToEnd == None:
           return -1
         costToEnd = pathToEnd.total_cost
@@ -109,8 +109,6 @@ class Routing(object):
       typeVnf = cloneRequiredVnfs.pop(0)
       nodesHaveVnf = self.input.getNodeHaveVnf(self.individual, typeVnf)
       minPath = constant.INFINITY
-      if usageIn == 'genState' and len(nodesHaveVnf):
-        print(nodesHaveVnf)
       for node in nodesHaveVnf:
         usageCpu = 0
         if limitCpu.get(node):
@@ -118,21 +116,20 @@ class Routing(object):
         if usageCpu+cpu > self.CPU_MAX:
           continue
 
-        pathToNextVnf = self.input.input.shortestPath(garph, startNode, node)
+        pathToNextVnf = self.input.input.shortestPath(graph, startNode, node)
         if pathToNextVnf == None:
           continue
 
-        leftCost = self.calEstimate(garph, node, endNode, cloneRequiredVnfs, limitCpu, cpu)
+        leftCost = self.calEstimate(graph, node, endNode, cloneRequiredVnfs, limitCpu, cpu)
         if leftCost == -1:
           continue
 
         costToNextVnf = pathToNextVnf.total_cost
-        minPath = min(minPath, costToNextVnf+leftCost)
+        delayProcessInNode = self.input.input.nodes[node].nodeDelay
+        minPath = min(minPath, costToNextVnf+leftCost+delayProcessInNode)
       if minPath == constant.INFINITY:
         return -1
       return minPath
-      
-
     
     def calHeuCost(self, state:RouteState):
        return state.g +state.h
@@ -151,6 +148,7 @@ class Routing(object):
       request = self.requests[requestOrder]
       nextNodes = [request.get('endRequest')]
       requiredVnfs = parentStage.requiredVnfs[requestOrder]
+      nextVnf = None
       if len(requiredVnfs):
         nextVnf = requiredVnfs.pop(0)
         nextNodes = self.input.getNodeHaveVnf(self.individual, nextVnf)
@@ -164,6 +162,8 @@ class Routing(object):
         # currentStage: RouteState = copy.deepcopy(parentStage)
         # currentStage.graph = currentGraph
         pathsByDfs =[]
+        self.dfs.visited = {}
+        self.dfs.state = []
         self.dfs.dfs(self.initState.graph, currentNodeId, target,request.get('memory'), request.get('bandwidth'), parentStage.limitMem, parentStage.limitBandwidth, self.MEM_MAX, self.CAP_MAX, pathsByDfs)
         if not len(pathsByDfs):
           continue
@@ -220,7 +220,13 @@ class Routing(object):
           if h == -1:
             continue
           currentStage.g+= cost
+          if nextVnf != None:
+            target = pathByDfs[-1]
+            costDelay = self.input.input.nodes[target].nodeDelay
+            currentStage.g += costDelay
           currentStage.h = h
+          currentStage.path[requestOrder].pop()
+          currentStage.path[requestOrder].extend(pathByDfs)
           self.generateNextStage(currentStage, requestOrder+1, stageStore)
 
     def insertState(self, arr: list=[], heuCost =0, start=0, end=-1):
@@ -240,7 +246,8 @@ class Routing(object):
       return self.insertState(arr, heuCost, mid, end)
 
     def aStart(self):
-      assert self.initState.h == -1, 'init state estimate can\'t be -1'
+      assert self.initState.h != -1, 'init state estimate can\'t be -1'
+      iter = 0
       stateStore = [self.initState]
       while (len(stateStore)):
         queue = []
@@ -250,26 +257,14 @@ class Routing(object):
         # print('space state ',len(stateStore), ' leftVnfs ',len(state.requiredVnfs))
         state.h = 0
         self.generateNextStage(state, 0, queue)
+        iter +=1
         for state in queue:
           indexNumber = self.insertState(stateStore, self.calHeuCost(state), 0, len(stateStore)-1)
           stateStore.insert(indexNumber, state)
-
-    def resetInds(self):
-      print('old ', self.input.individuals)
-      for indexSolution, ind in enumerate(self.input.individuals):
-        self.individual = ind
-        self.indexSolution =indexSolution
-        rsAstart = None
-        while rsAstart == None:
-          rsAstart = self.aStart()
-          self.input.individuals[indexSolution] = np.random.randint(-1, self.input.input.numberVnfs, (1, self.input.numberServerNode*self.input.offsetServerNode))
-          self.individual = self.input.individuals[indexSolution]
-          print('reset ', self.individual)
-        print('success ', indexSolution)
-      f = open("demofile2.txt", "w")
-      f.write(str(self.input.individuals))
-      f.close()
-      print(self.input.individuals)
+        # if not iter%50:
+        #   print(iter, ': currentStage: \n', state.__dict__, '\n space size: ', len(stateStore), '\n --------------------------------')
+          # if iter in [1,2]:
+          #   input("Press Enter to continue...")
         
         
         
