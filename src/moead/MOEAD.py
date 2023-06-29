@@ -131,6 +131,6 @@ class MOEAD(object):
       self.inputData.individuals[childIndex] = oldChild
       if not iter % 50:
         print(self.evlateFnc())
-    pd.DataFrame(individuals).to_csv('tuanRs.csv', index=False)
+    pd.DataFrame(self.inputData.individuals).to_csv('tuanRs.csv', index=False)
 
 

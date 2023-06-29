@@ -39,7 +39,7 @@ def run():
     # print('CAP: {}, CPU: {}, MEM: {}'.format(routing.CAP_MAX, routing.CPU_MAX, routing.MEM_MAX))
     # print(a.__dict__)
     modad = MOEAD(inputData)
-    modad.execute(5000)
+    modad.execute(10000)
 # initIndividuals()
 run()
 # store = []
