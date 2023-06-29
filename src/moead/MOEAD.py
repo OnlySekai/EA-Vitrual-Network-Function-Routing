@@ -23,14 +23,16 @@ class MOEAD(object):
         minValue = value
         minIndex = index
         objective = f.copy()
-    return minValue, f
+    return minValue, minIndex, objective
   def dl(self, indexIndividual):
     routing = Routing(constant.REQUEST_10, self.inputData, indexIndividual)
-    rs = routing.aStart()
+    # rs = routing.aStart()
+    rs = routing.dijkstart()
     assert rs != None, "Can't routing"
-    costDl = rs.g
+    # costDl = rs.g
     sumDl = (self.inputData.input.sumCostEdges + self.inputData.input.sumDelayServerNode)*routing.numberRequest
-    return costDl/sumDl
+    # return costDl/sumDl
+    return rs/sumDl
 
     
   def cs(self, indexIndividual):
@@ -131,6 +133,6 @@ class MOEAD(object):
       self.inputData.individuals[childIndex] = oldChild
       if not iter % 50:
         print(self.evlateFnc())
-    pd.DataFrame(self.inputData.individuals).to_csv('tuanRs.csv', index=False)
+    pd.DataFrame(self.inputData.individuals).to_csv('tuanRs2.csv', index=False)
 
 

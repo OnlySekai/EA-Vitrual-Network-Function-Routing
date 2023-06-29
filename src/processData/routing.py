@@ -245,6 +245,15 @@ class Routing(object):
          return self.insertState(arr, heuCost, start, mid)
       return self.insertState(arr, heuCost, mid, end)
 
+    def dijkstart(self):
+      g =0
+      for request in self.requests:
+        cost = self.calEstimate(self.initState.graph, request.get('startRequest'), request.get('endRequest'), request.get('vnfs'), {}, 0)
+        if cost == -1:
+          return None
+        g += cost
+      return g
+
     def aStart(self):
       assert self.initState.h != -1, 'init state estimate can\'t be -1'
       iter = 0

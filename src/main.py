@@ -14,7 +14,7 @@ def initIndividuals():
             inputData = PreProcessInput(1, 4)
             inputData.initIndividuals()
             routing = Routing(constant.REQUEST_10, inputData, 0)
-            a = routing.aStart()
+            a = routing.dijkstart()
             print('routing')
             if a:
                 a= list(inputData.individuals[0])
