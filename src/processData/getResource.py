@@ -22,7 +22,11 @@ class PreProcessInput(object):
          self.numberServerNode+=1
       # np.random.seed(100)
       self.individuals = np.random.randint(-1, self.input.numberVnfs, (1, self.numberServerNode*self.offsetServerNode))
-      print('initNeighborhoods done')
+      idx = 0
+      while (idx < len(self.individuals[0])):
+         self.individuals[0][idx] = 100
+         idx += self.offsetServerNode
+
    
    def getActiveServerNode(self, individual):
       activeNode = []

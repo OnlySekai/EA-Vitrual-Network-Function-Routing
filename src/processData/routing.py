@@ -76,12 +76,14 @@ class Routing(object):
               break
         else:
           limitMem[request.get('startRequest')]+=request.get('memory')
-        h = self.calEstimate(self.initState.graph, request['startRequest'], request['endRequest'], requiredVnfs, {}, request['cpu'])
-        assert h != -1, 'not have route {}'.format(request.get('startRequest'))
-        self.initState.h+= h
-        self.initState.requiredVnfs.append(requiredVnfs)
-        self.initState.path.append([request.get('startRequest')])
+        # h = self.calEstimate(self.initState.graph, request['startRequest'], request['endRequest'], requiredVnfs, {}, request['cpu'])
+        # assert h != -1, 'not have route {}'.format(request.get('startRequest'))
+        # self.initState.h+= h
+        # self.initState.requiredVnfs.append(requiredVnfs)
+        # self.initState.path.append([request.get('startRequest')])
         self.requests.append(request)
+    
+
 
     def isCompleteRequest(self, path, requiredVnfs, request):
        endNode = request.get('endRequest')

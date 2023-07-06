@@ -4,34 +4,41 @@ from constant import constant
 from processData.dfs import DFS
 from moead.MOEAD import MOEAD
 import pandas as pd
-
+import os
 
 def initIndividuals():
+    print(constant.SELECT_REQUEST,constant.NAME_DATA_SET)
     done = False
     individuals = []
     while (not done):
         try:
             inputData = PreProcessInput(1, 4)
             inputData.initIndividuals()
-            routing = Routing(constant.REQUEST_10, inputData, 0)
+            routing = Routing(constant.SELECT_REQUEST, inputData, 0)
             a = routing.dijkstart()
-            print('routing')
             if a:
                 a= list(inputData.individuals[0])
                 if not a in individuals:
                     individuals.append(a)
+                    if not len(individuals)% 10:
+                        print('numberIndividual: ', len(individuals))
         except Exception as e:
             print(e)
+            continue
         else:
             if len(individuals) == constant.NUMBER_SOLUTION:
                 done =True
-    pd.DataFrame(individuals).to_csv('tuan.csv', index=False)
+    pathDataset = "/root/vnf-routing/init/{}".format(constant.NAME_DATA_SET)
+    if not os.path.exists(pathDataset):
+        os.makedirs(pathDataset)
+    pd.DataFrame(individuals).to_csv('/root/vnf-routing/init/{}/{}.csv'.format(constant.NAME_DATA_SET, constant.SELECT_REQUEST), index=False)
+
 def run():
     inputData = PreProcessInput(constant.NUMBER_SOLUTION, constant.NUMBER_NEIGHBOR)
     inputData.initIndividuals()
     inputData.initWeightVectors()
     inputData.initNeighborhoods()
-    df = pd.read_csv('tuan.csv')
+    df = pd.read_csv('/root/vnf-routing/init/{}/{}.csv'.format(constant.NAME_DATA_SET, constant.SELECT_REQUEST))
     lst = df.to_numpy()
     inputData.individuals = lst
     # routing = Routing(constant.REQUEST_10, inputData, 5)
@@ -39,9 +46,27 @@ def run():
     # print('CAP: {}, CPU: {}, MEM: {}'.format(routing.CAP_MAX, routing.CPU_MAX, routing.MEM_MAX))
     # print(a.__dict__)
     modad = MOEAD(inputData)
-    modad.execute(10000)
+    modad.execute(5000)
 # initIndividuals()
-run()
+# run()
+
+def main():
+    pathDataset = "/root/vnf-routing/dataset"
+    pathRs = "/root/vnf-routing/rs"
+    directories = [d for d in os.listdir(pathDataset)]
+    requests = [constant.REQUEST_10]
+    # blackList = [ 'nsf_rural_2',  'cogent_center_4', 'cogent_center_3']
+    for directory in directories:
+        # if directory in blackList:
+        #     continue
+        constant.NAME_DATA_SET = directory
+        for request in requests:
+            constant.SELECT_REQUEST = request
+            if os.path.exists('{}/{}/{}.csv'.format(pathRs, constant.NAME_DATA_SET, constant.SELECT_REQUEST)):
+                continue
+            initIndividuals()
+            run()
+main()
 # store = []
 # dfs = DFS(inputData.input)
 

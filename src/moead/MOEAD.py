@@ -4,6 +4,7 @@ from processData.routing import Routing
 from functools import reduce
 import numpy as np
 import pandas as pd
+import os
 
 class MOEAD(object):
   def __init__(self, inputData: PreProcessInput):
@@ -25,7 +26,7 @@ class MOEAD(object):
         objective = f.copy()
     return minValue, minIndex, objective
   def dl(self, indexIndividual):
-    routing = Routing(constant.REQUEST_10, self.inputData, indexIndividual)
+    routing = Routing(constant.SELECT_REQUEST, self.inputData, indexIndividual)
     # rs = routing.aStart()
     rs = routing.dijkstart()
     assert rs != None, "Can't routing"
@@ -131,8 +132,12 @@ class MOEAD(object):
       self.inputData.individuals[childIndex] = child
       self.updateNeighboringSolution(childIndex)
       self.inputData.individuals[childIndex] = oldChild
-      if not iter % 50:
+      if not iter % 1000:
         print(self.evlateFnc())
-    pd.DataFrame(self.inputData.individuals).to_csv('tuanRs2.csv', index=False)
+    pathDataset = "/root/vnf-routing/rs/{}".format(constant.NAME_DATA_SET)
+    if not os.path.exists(pathDataset):
+        os.makedirs(pathDataset)
+    pd.DataFrame(self.F).to_csv('/root/vnf-routing/rs/{}/{}.csv'.format(constant.NAME_DATA_SET, constant.SELECT_REQUEST), index=False)
+    print('-----------------------')
 
 
