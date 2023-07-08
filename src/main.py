@@ -52,19 +52,20 @@ def run():
 
 def main():
     pathDataset = "/root/vnf-routing/dataset"
-    pathRs = "/root/vnf-routing/rs"
+    pathRs = "/root/vnf-routing/rs2"
     directories = [d for d in os.listdir(pathDataset)]
     requests = [constant.REQUEST_10]
     # blackList = [ 'nsf_rural_2',  'cogent_center_4', 'cogent_center_3']
     for directory in directories:
-        # if directory in blackList:
-        #     continue
+        endDict = int(str(directory).split('_')[-1])
+        if (endDict !=3 ):
+            continue
         constant.NAME_DATA_SET = directory
         for request in requests:
             constant.SELECT_REQUEST = request
             if os.path.exists('{}/{}/{}.csv'.format(pathRs, constant.NAME_DATA_SET, constant.SELECT_REQUEST)):
                 continue
-            initIndividuals()
+            # initIndividuals()
             run()
 main()
 # store = []

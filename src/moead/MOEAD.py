@@ -2,6 +2,7 @@ from processData.getResource import PreProcessInput
 from constant import constant
 from processData.routing import Routing
 from functools import reduce
+import copy
 import numpy as np
 import pandas as pd
 import os
@@ -11,9 +12,11 @@ class MOEAD(object):
     self.inputData: PreProcessInput = inputData
     self.reference = np.zeros((3,)) + np.inf
     self.F = []
+    self.EP = []
     for index, individual in enumerate(inputData.individuals):
       f = self.calObjective(index)
       self.F.append(f)
+      self.EP.append(copy.deepcopy(f))
       self.updateReferences(f)
 
   def evlateFnc(self):
@@ -25,6 +28,7 @@ class MOEAD(object):
         minIndex = index
         objective = f.copy()
     return minValue, minIndex, objective
+
   def dl(self, indexIndividual):
     routing = Routing(constant.SELECT_REQUEST, self.inputData, indexIndividual)
     # rs = routing.aStart()
@@ -88,23 +92,31 @@ class MOEAD(object):
       individual[allenIdx] = newValue
     return individual
 
+  def isDominated(self, dominator, individual):
+    for i in range(len(dominator)):
+      if dominator[i] > individual[i]:
+        return False
+    if list(dominator) == list(individual):
+      return False
+    return True
+
   def updateReferences(self, objective):
     for i in range(len(self.reference)):
       self.reference[i] = min(self.reference[i], objective[i])
 
   def updateNeighboringSolution(self, indexIndividual):
     individual = self.inputData.individuals[indexIndividual]
+    updatedNeighbor = False
     try:
       costsChild = self.calObjective(indexIndividual)
     except:
-      return
+      return [], updatedNeighbor
     weightVectors = self.inputData.weightVectors
     neighbors = self.inputData.matrixNeighbor[indexIndividual]
     def calOptimizeFunction(costs, weightVector):
       # print(costs, self.reference, individual)
       vector = abs(costs - self.reference)
       return max([weight*cost for weight, cost in zip(weightVector, vector)])
-    updatedNeighbor = []
     for index in neighbors:
         costs = self.calObjective(index)
         self.updateReferences(costs)
@@ -112,14 +124,16 @@ class MOEAD(object):
         fitnessChild = calOptimizeFunction(costsChild, weightVectors[indexIndividual])
         if (fitnessChild < fitness):
           self.inputData.individuals[index] = self.inputData.individuals[indexIndividual]
-          self.F[index] = costs
-          updatedNeighbor.append(index)
-    return neighbors, updatedNeighbor
+          self.F[index] = costsChild
+          updatedNeighbor = True
+    return costsChild, updatedNeighbor
   
   def execute(self, maxIter: int):
     iter = 0
     print(self.evlateFnc())
-    while iter < maxIter:
+    while iter < maxIter or len(self.EP) < constant.NUMBER_SOLUTION:
+      if iter >20000:
+        break
       iter +=1
       numberSolutions = self.inputData.numberSolutions
       childIndex = np.random.randint(numberSolutions)
@@ -130,14 +144,25 @@ class MOEAD(object):
       child = self.mutation(tempChild)
       oldChild = self.inputData.individuals[childIndex].copy()
       self.inputData.individuals[childIndex] = child
-      self.updateNeighboringSolution(childIndex)
+      childCost, updatedNeighbor = self.updateNeighboringSolution(childIndex)
       self.inputData.individuals[childIndex] = oldChild
+      if len(childCost) and updatedNeighbor:
+        anyDominate = False
+        for index, item in enumerate(self.EP):
+          isDominated = self.isDominated(childCost, item)
+          if isDominated:
+            self.EP.pop(index)
+          if not anyDominate and not isDominated and self.isDominated(item, childCost):
+            anyDominate = True
+        if not anyDominate:
+          self.EP.append(childCost)  
+          
       if not iter % 1000:
         print(self.evlateFnc())
-    pathDataset = "/root/vnf-routing/rs/{}".format(constant.NAME_DATA_SET)
+    pathDataset = "/root/vnf-routing/rs2/{}".format(constant.NAME_DATA_SET)
     if not os.path.exists(pathDataset):
         os.makedirs(pathDataset)
-    pd.DataFrame(self.F).to_csv('/root/vnf-routing/rs/{}/{}.csv'.format(constant.NAME_DATA_SET, constant.SELECT_REQUEST), index=False)
+    pd.DataFrame(self.F).to_csv('/root/vnf-routing/rs2/{}/{}.csv'.format(constant.NAME_DATA_SET, constant.SELECT_REQUEST), index=False)
     print('-----------------------')
 
 
